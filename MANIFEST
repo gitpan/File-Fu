@@ -1,0 +1,15 @@
+Build.PL
+Changes
+lib/File/Fu.pm
+lib/File/Fu/Base.pm
+lib/File/Fu/Dir.pm
+lib/File/Fu/File.pm
+MANIFEST			This list of files
+MANIFEST.SKIP
+META.yml
+README
+t/00-load.t
+t/basic.t
+t/end_bits.t
+t/errors.t
+t/links.t
