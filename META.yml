@@ -1,6 +1,6 @@
 ---
 name: File-Fu
-version: v0.0.1
+version: v0.0.2
 author:
   - 'Eric Wilhelm @ <ewilhelm at cpan dot org>'
 abstract: file and directory objects
@@ -20,16 +20,24 @@ build_requires:
 provides:
   File::Fu:
     file: lib/File/Fu.pm
-    version: v0.0.1
+    version: v0.0.2
   File::Fu::Base:
     file: lib/File/Fu/Base.pm
-    version: v0.0.1
+    version: v0.0.2
   File::Fu::Dir:
     file: lib/File/Fu/Dir.pm
-    version: v0.0.1
+    version: v0.0.2
+  File::Fu::Dir::FindKnob:
+    file: lib/File/Fu/Dir.pm
+  File::Fu::Dir::Temp:
+    file: lib/File/Fu/Dir/Temp.pm
+    version: v0.0.2
   File::Fu::File:
     file: lib/File/Fu/File.pm
-    version: v0.0.1
+    version: v0.0.2
+  File::Fu::File::Temp:
+    file: lib/File/Fu/File/Temp.pm
+    version: v0.0.2
 generated_by: Module::Build version 0.280801
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html

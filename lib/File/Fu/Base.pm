@@ -1,9 +1,11 @@
 package File::Fu::Base;
-$VERSION = v0.0.1;
+$VERSION = v0.0.2;
 
 use warnings;
 use strict;
 use Carp;
+
+use File::stat ();
 
 =head1 NAME
 
@@ -75,6 +77,11 @@ sub clonedo {
     return($arg . $self->stringify) if($action eq 'append');
     croak("$action is invalid in that order");
   }
+
+  # perl doesn't know how to stringify
+  # TODO how can I tell when this is just a quoted string?
+  #if($action eq 'append' and $arg =~ m/\n/) { return($self->stringify . $arg); }
+
   $self = $self->clone;
   $self->$action($arg);
   #carp("now ", overload::StrVal($self));
@@ -149,6 +156,70 @@ sub relative {
   my $self = shift;
   return $self->new(File::Spec->abs2rel($self->stringify));
 }
+
+=head2 utime
+
+Update the file timestamps.
+
+  $file->utime($atime, $mtime);
+
+Optionally, set both to the same time.
+
+  $file->utime($time);
+
+Also see touch().
+
+=cut
+
+sub utime {
+  my $self = shift;
+  @_ or croak("not enough arguments to utime()");
+  my $at = shift;
+  my $mt = @_ ? shift(@_) : $at;
+  if($self->is_dir) {
+    $self = $self->bare;
+  }
+  utime($at, $mt, $self) or croak("cannot utime '$self' $!");
+} # end subroutine utime definition
+########################################################################
+
+=head1 Stat Object
+
+The stat() and lstat() methods both return a File::stat object.
+
+=head2 stat
+
+  my $st = $obj->stat;
+
+=cut
+
+sub stat {
+  my $self = shift;
+  my $st = File::stat::stat("$self") or
+    croak("cannot stat '$self' $!");
+  return($st);
+} # end subroutine stat definition
+########################################################################
+
+=head2 lstat
+
+Same as stat, but does not dereference symlinks.
+
+  my $st = $obj->lstat;
+
+=cut
+
+sub lstat {
+  my $self = shift;
+
+  if($self->is_dir and $self->l) {
+    $self = $self->bare;
+  }
+  my $st = File::stat::lstat("$self") or
+    croak("cannot lstat '$self' $!");
+  return($st);
+} # end subroutine lstat definition
+########################################################################
 
 =head1 AUTHOR
 

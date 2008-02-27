@@ -1,9 +1,14 @@
 package File::Fu::Dir;
-$VERSION = v0.0.1;
+$VERSION = v0.0.2;
 
 use warnings;
 use strict;
 use Carp;
+
+use File::Path (); # for now
+
+use File::Fu::Dir::Temp;
+use File::Fu::File::Temp;
 
 =head1 NAME
 
@@ -39,15 +44,56 @@ sub new {
 } # end subroutine new definition
 ########################################################################
 
+=head1 Class Constants/Methods
+
 =head2 file_class
 
 Return the corresponding file class for this dir object.
 
   my $fc = $class->file_class;
 
+=head2 is_dir
+
+Always true for a directory.
+
+=head2 is_file
+
+Always false for a directory.
+
 =cut
 
 use constant file_class => 'File::Fu::File';
+use constant is_dir => 1;
+use constant is_file => 0;
+
+########################################################################
+
+=head2 temp_dir_class
+
+  my $class = File::Fu::Dir->temp_dir_class;
+
+=cut
+
+sub temp_dir_class {
+  my $package = shift;
+  my $class = ref($package) . '::Temp';
+  $class = __PACKAGE__ . '::Temp' unless($class->can('new'));
+  return($class);
+} # end subroutine temp_dir_class definition
+########################################################################
+
+=head2 temp_file_class
+
+  my $class = File::Fu::Dir->temp_file_class;
+
+=cut
+
+sub temp_file_class {
+  my $package = shift;
+  my $class = $package->file_class . '::Temp';
+  $class = __PACKAGE__->file_class.'::Temp' unless($class->can('new'));
+  return($class);
+} # end subroutine temp_file_class definition
 ########################################################################
 
 =for internal head2 _init
@@ -84,6 +130,43 @@ sub stringify {
   # TODO volume
   join('/', @dirs, ''); # always a trailing slash
 } # end subroutine stringify definition
+########################################################################
+
+=for note bareness
+A dir which is a symlink doesn't show -l if checked with '/' on the end
+of the string.
+
+=cut
+
+=begin shutup_pod_cover
+
+=head2 l
+
+=end shutup_pod_cover
+
+=cut
+
+*l = sub {-l shift->bare};
+
+=head2 bare
+
+Stringify without the trailing slash/assertion.
+
+  my $str = $self->bare;
+
+The trailing slash causes trouble when trying to address a symlink to a
+directory via a dir object.  Thus, C<-l $dir> doesn't work, but
+C<$dir->l> does.
+
+=cut
+
+sub bare {
+  my $self = shift;
+  my @dirs = @{$self->{dirs}};
+  @dirs or return('/');
+  # TODO volume
+  join('/', @dirs); # always a trailing slash
+} # end subroutine bare definition
 ########################################################################
 
 =head2 file
@@ -166,9 +249,22 @@ sub part {
 } # end subroutine part definition
 ########################################################################
 
+=head2 end
+
+Shorthand for part(-1);
+
+=cut
+
+sub end {shift->part(-1)};
+
 =head2 map
 
+Execute a callback on each part of $dir.  The sub should modify $_ (yes,
+this is slightly unlike the map() builtin.)
+
   $dir->map(sub {...});
+
+  $dir &= sub {s/foo$/bar/};
 
 =cut
 
@@ -262,39 +358,53 @@ sub open :method {
 } # end subroutine open definition
 ########################################################################
 
-=head2 listing
+=head2 touch
 
-  my @paths = $dir->listing(all => 1);
+Update the timestamp of a directory (croak if it doesn't exist.)
+
+  $dir->touch;
 
 =cut
 
-sub listing {
+sub touch {
+  my $self = shift;
+  $self->utime(time);
+} # end subroutine touch definition
+########################################################################
+
+=head2 list
+
+  my @paths = $dir->list(all => 1);
+
+=cut
+
+sub list {
   my $self = shift;
 
   map({my $d = $self/$_; -d $d ? $d : $self+$_} $self->contents(@_));
-} # end subroutine listing definition
+} # end subroutine list definition
 ########################################################################
 
-=head2 iterate_listing
+=head2 lister
 
-  my $subref = $dir->iterate_listing(all => 1);
+  my $subref = $dir->lister(all => 1);
 
 =cut
 
-sub iterate_listing {
+sub lister {
   my $self = shift;
   my $csub = $self->iterate_contents(@_);
   my $sub = sub {
     $csub or return();
     while(defined(my $n = $csub->())) {
       my $d = $self/$n;
-      return(-d $d ? $d : $self+$n)
+      return(-d $d->bare ? $d : $self+$n)
     }
     $csub = undef;
     return();
   };
   return($sub);
-} # end subroutine iterate_listing definition
+} # end subroutine lister definition
 ########################################################################
 
 =head2 contents
@@ -348,6 +458,250 @@ sub iterate_contents {
     return();
   };
 } # end subroutine iterate_contents definition
+########################################################################
+
+=head2 find
+
+Not the same as File::Find::find().
+
+  my @files = $dir->find(sub {m/foo/});
+
+=cut
+
+sub find {
+  my $self = shift;
+
+  my @return;
+  my $finder = $self->finder(@_);
+  while(defined(my $ans = $finder->())) {
+    $ans or next;
+    push(@return, $ans);
+  }
+  return(@return);
+} # end subroutine find definition
+########################################################################
+
+=head2 finder
+
+Returns an iterator for finding files.
+
+  my $subref = $dir->finder(sub {$_->is_file and $_->file =~ m/foo/});
+
+This allows a non-blocking find.
+
+  while(defined(my $path = $subref->())) {
+    $path or next; # 0 means 'not done yet'
+    # do something with $path (is a file or dir object)
+  }
+
+And there is a knob:
+
+  my $finder = $dir->finder(sub {
+    return shift->prune
+      if($_->is_dir and $_->part(-1) =~ m/^\.svn$/);
+    $_->is_file and m/\.pm$/;
+  });
+
+=cut
+
+sub finder {
+  my $self = shift;
+  my ($matcher, @opt) = @_;
+
+  my %opt = (all => 1);
+
+  my $reader;
+  my @stack;
+  my $it = sub {
+    my $loops = 0;
+    FIND: {
+      $reader ||= $self->lister(all => $opt{all});
+      $loops++;
+      if(defined(my $path = $reader->())) {
+        if($path->is_dir and not $path->l) {
+          push(@stack, [$self, $reader]);
+          ($self, $reader) = ($path, undef);
+        }
+        local $_ = $path;
+        #warn "  check $path\n";
+        my $ok = $matcher->(my $knob = File::Fu::Dir::FindKnob->new);
+        if($knob->pruned) {
+          ($self, $reader) = @{pop(@stack)};
+        }
+        if($ok) {
+          return($path);
+        }
+        redo FIND if($loops < 50);
+        return(0); # no match, but continue
+      }
+      else {
+        @stack or return();
+        ($self, $reader) = @{pop(@stack)};
+        redo FIND;
+      }
+    }
+  };
+  return($it);
+} # end subroutine finder definition
+########################################################################
+
+BEGIN {
+package File::Fu::Dir::FindKnob;
+use Class::Accessor::Classy;
+with 'new';
+ri 'pruned';
+no  Class::Accessor::Classy;
+sub prune {shift->set_pruned(1); 0}
+} # File::Fu::Dir::FindKnob
+########################################################################
+
+=head2 mkdir
+
+Create the directory or croak with an error.
+
+  $dir->mkdir;
+
+=cut
+
+sub mkdir :method {
+  my $self = shift;
+  mkdir($self) or croak("cannot mkdir('$self') $!");
+} # end subroutine mkdir definition
+########################################################################
+
+=head2 create
+
+Create the directory, with parents if needed.
+
+  $dir->create;
+
+=cut
+
+sub create {
+  my $self = shift;
+  File::Path::mkpath("$self");
+} # end subroutine create definition
+########################################################################
+
+=head2 rmdir
+
+Remove the directory or croak with an error.
+
+  $dir->rmdir;
+
+=cut
+
+sub rmdir :method {
+  my $self = shift;
+  rmdir($self) or croak("cannot rmdir('$self') $!");
+} # end subroutine rmdir definition
+########################################################################
+
+=head2 remove
+
+Remove the directory and all of its children.
+
+  $dir->remove;
+
+=cut
+
+sub remove {
+  my $self = shift;
+  my $dir = $self->stringify;
+  File::Path::rmtree($dir);
+  -e $dir and croak("rmtree failed"); # XXX rmtree is buggy
+} # end subroutine remove definition
+########################################################################
+
+=head2 unlink
+
+  $link->unlink;
+
+=cut
+
+sub unlink :method {
+  my $self = shift;
+  $self->l or croak("not a link");
+  unlink($self->bare) or croak("unlink '$self' failed $!");
+} # end subroutine unlink definition
+########################################################################
+
+=head2 symlink
+
+  my $link = $file->symlink($linkname);
+
+Note that symlinks are relative to where they live.
+
+  my $dir = File::Fu->dir("foo");
+  my $file = $dir+'file';
+  # $file->symlink($dir+'link'); is a broken link
+  my $link = $file->basename->symlink($dir+'link');
+
+=cut
+
+sub symlink :method {
+  my $self = shift;
+  my ($name) = @_;
+  symlink($self->bare, $name) or
+    croak("symlink '$self' to '$name' failed $!");
+  return($self->new($name));
+} # end subroutine symlink definition
+########################################################################
+
+=head2 readlink
+
+  my $to = $file->readlink;
+
+=cut
+
+sub readlink {
+  my $self = shift;
+  my $name = readlink($self->bare);
+  defined($name) or croak("cannot readlink '$self' $!");
+  return($self->new($name));
+} # end subroutine readlink definition
+########################################################################
+
+=head1 Temporary Directories and Files
+
+These methods use the $dir object as a parent location for the temp
+path.  To use your system's global temp space (e.g. '/tmp/'), just
+replace $dir with 'File::Fu'.
+
+  File::Fu->temp_dir;              # '/tmp/'
+  File::Fu->dir->temp_dir;         # './'
+  File::Fu->dir("foo")->temp_dir;  # 'foo/'
+
+  File::Fu->temp_file;             # '/tmp/'
+  File::Fu->dir->temp_file;        # './'
+  File::Fu->dir("foo")->temp_file; # 'foo/'
+
+=head2 temp_dir
+
+Return a temporary directory in $dir.
+
+  my $dir = $dir->temp_dir;
+
+=cut
+
+sub temp_dir {
+  my $self = shift;
+  $self->temp_dir_class->new($self, @_);
+} # end subroutine temp_dir definition
+########################################################################
+
+=head2 temp_file
+
+Return a filehandle to a temporary file in $dir.
+
+  my $handle = $dir->temp_file;
+
+=cut
+
+sub temp_file {
+  my $self = shift;
+  $self->temp_file_class->new($self, @_);
+} # end subroutine temp_file definition
 ########################################################################
 
 =head1 AUTHOR

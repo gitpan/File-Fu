@@ -1,5 +1,24 @@
 Revision history for File-Fu
 
+v0.0.2 2008-02-27
+
+  ! still subject to API changes
+
+  * lots of new methods
+    (readlink, mkdir, rmdir, touch, stat)
+
+  * part() and end() methods (Dir)
+
+  * renamed listing() to list() and iterate_listing() to lister() (Dir)
+
+  * find()/finder() methods (Dir)
+
+  * temp_file()/temp_dir() methods (Dir)
+
+  * read() method for slurping (File)
+
+  * pod, tests, and other good stuff
+
 v0.0.1 2008-02-18
 
   * first public release

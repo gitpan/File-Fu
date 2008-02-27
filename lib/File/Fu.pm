@@ -1,5 +1,5 @@
 package File::Fu;
-$VERSION = v0.0.1;
+$VERSION = v0.0.2;
 
 use warnings;
 use strict;
@@ -16,6 +16,7 @@ File::Fu - file and directory objects
 
 use File::Fu::File;
 use File::Fu::Dir;
+use File::Spec ();
 
 use constant dir_class => 'File::Fu::Dir';
 use constant file_class => 'File::Fu::File';
@@ -67,7 +68,73 @@ sub file {
 } # end subroutine file definition
 ########################################################################
 
+=head1 Class Constants
 
+=head2 tmp
+
+Your system's '/tmp/' directory (or equivelant of that.)
+
+  my $dir = File::Fu->tmp;
+
+=cut
+
+{
+my $tmp; # XXX needs locking?
+sub tmp {
+  my $package = shift;
+  $tmp and return($tmp);
+  return($tmp = $package->dir(File::Spec->tmpdir));
+}}
+########################################################################
+
+=head1 Temporary Directories and Files
+
+These class methods call the corresponding File::Fu::Dir methods on the
+value of tmp().  That is, you get a temporary file/dir in the '/tmp/'
+directory.
+
+=head2 temp_dir
+
+  my $dir = File::Fu->temp_dir;
+
+=cut
+
+sub temp_dir {
+  my $package = shift;
+  $package->tmp->temp_dir(@_);
+} # end subroutine temp_dir definition
+########################################################################
+
+=head2 temp_file
+
+  my $handle = File::Fu->temp_file;
+
+=cut
+
+sub temp_file {
+  my $package = shift;
+  $package->tmp->temp_file(@_);
+} # end subroutine temp_file definition
+########################################################################
+
+=head1 Subclassing
+
+You may wish to subclass File:Fu and override the dir_class() and/or
+file_class() class methods to point to your own Dir/File subclasses.
+
+  my $class = 'My::FileFu';
+  my $dir = $class->dir("foo");
+
+See L<File::Fu::File> and L<File::Fu::Dir> for more info.
+
+=head1 See Also
+
+L<File::Fu::why> if I need to explain my motivations.
+
+L<Path::Class>, from which many an idea was taken.
+
+L<File::stat>, L<IO::File>, L<File::Spec>, L<File::Find>, L<File::Temp>,
+L<File::Path>, L<File::Basename>, L<perlfunc>, L<perlopentut>.
 
 =head1 AUTHOR
 

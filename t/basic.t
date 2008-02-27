@@ -10,7 +10,10 @@ use File::Fu;
 my $dir = File::Fu->dir;
 ok($dir, 'constructor');
 is($dir, File::Fu::Dir->new('.'), 'current directory default');
-is("$dir", './', 'stringify'); # TODO needs thought
+is("$dir", './', 'stringify');
+TODO: { local $TODO = 'stringify and append are confused';
+  is("$dir\n", "./\n", 'stringify');
+}
 is($dir->part(0), '.');
 is($dir->part(-1), '.');
 

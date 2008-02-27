@@ -1,5 +1,5 @@
 package File::Fu::File;
-$VERSION = v0.0.1;
+$VERSION = v0.0.2;
 
 use warnings;
 use strict;
@@ -12,6 +12,14 @@ use IO::File ();
 File::Fu::File - a filename object
 
 =head1 SYNOPSIS
+
+  use File::Fu;
+
+  my $file = File::Fu->new("path/to/file");
+  $file .= '.extension';
+  $file->e and warn "$file exists";
+
+  $file->l and warn "$file is a link to ", $file->readlink;
 
 =cut
 
@@ -61,15 +69,28 @@ sub new_direct {
 } # end subroutine new_direct definition
 ########################################################################
 
+=head1 Class Constants
+
 =head2 dir_class
 
 Return the corresponding dir class for this file object.
 
   my $dc = $class->dir_class;
 
+=head2 is_dir
+
+Always false for a file.
+
+=head2 is_file
+
+Always true for a file.
+
 =cut
 
 use constant dir_class => 'File::Fu::Dir';
+use constant is_dir => 0;
+use constant is_file => 1;
+
 ########################################################################
 
 =for internal head2 _init
@@ -192,6 +213,25 @@ sub open :method {
 } # end subroutine open definition
 ########################################################################
 
+=head2 touch
+
+Update the timestamp of a file (or create it.)
+
+  $file->touch;
+
+=cut
+
+sub touch {
+  my $self = shift;
+  if(-e $self) {
+    $self->utime(time);
+  }
+  else {
+    $self->open('>');
+  }
+} # end subroutine touch definition
+########################################################################
+
 =head2 link
 
   my $link = $file->link($name);
@@ -268,12 +308,47 @@ sub unlink :method {
 
 =cut
 
-sub readlink {
+sub readlink :method {
   my $self = shift;
   my $name = readlink($self);
   defined($name) or croak("cannot readlink '$self' $!");
   return($self->new($name));
 } # end subroutine readlink definition
+########################################################################
+
+=head2 read
+
+Read the entire file into memory (or swap!)
+
+  my @lines = $file->read;
+
+  my $file = $file->read;
+
+If File::Slurp is available, options to read_file will be passed along.
+See L<File::Slurp/read_file>.
+
+=cut
+
+{
+my $has_slurp;
+sub read :method {
+  my $self = shift;
+  my @args = @_;
+
+  $has_slurp ||= eval {require File::Slurp; 1} || -1;
+
+  if($has_slurp > 0) {
+    local $Carp::CarpLevel = 1;
+    return(File::Slurp::read_file("$self", @args, err_mode => 'croak'));
+  }
+  else {
+    croak("must have File::Slurp for fancy reads") if(@args);
+
+    my $fh = $self->open;
+    local $/ = wantarray ? $/ : undef;
+    return(<$fh>);
+  }
+}} # end subroutine read definition
 ########################################################################
 
 =head1 AUTHOR
