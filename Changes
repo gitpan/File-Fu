@@ -1,5 +1,9 @@
 Revision history for File-Fu
 
+v0.0.3 2008-03-08
+
+  ! changed inner append to '%' from .
+
 v0.0.2 2008-02-27
 
   ! still subject to API changes

@@ -1,5 +1,5 @@
 package File::Fu;
-$VERSION = v0.0.2;
+$VERSION = v0.0.3;
 
 use warnings;
 use strict;
@@ -10,6 +10,37 @@ use Carp;
 File::Fu - file and directory objects
 
 =head1 SYNOPSIS
+
+The directory constructor:
+
+  my $dir = File::Fu->dir("bar");
+  print "$dir\n"; # 'dir/'
+
+  my $file = $dir + 'bar.txt';
+  print "$file\n"; # 'foo/bar.txt'
+
+  my $d2 = $dir % 'baz'; # 'barbaz/'
+  my $d3 = $dir / 'bat'; # 'bar/bat/'
+
+  my $file2 = $dir / 'bat' + 'foo.txt'; # 'bar/bat/foo.txt'
+
+The file constructor:
+
+  my $file = File::Fu->file("foo");
+  $file->e and warn "$file exists";
+  $file->l and warn "$file is a link";
+  warn "file is in ", $file->dir;
+
+=head1 ABOUT
+
+This class provides the toplevel interface to File::Fu directory and
+file objects, with operator overloading which allows precise path
+composition and support for most builtin methods, as well as creation of
+temporary files/directories, finding files, and more.
+
+The interface and style are quite different than the perl builtins or
+File::Spec.  The syntax is concise.  Errors are thrown with croak(), so
+you never need to check a return code.
 
 =cut
 

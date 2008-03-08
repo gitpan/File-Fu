@@ -11,9 +11,7 @@ my $dir = File::Fu->dir;
 ok($dir, 'constructor');
 is($dir, File::Fu::Dir->new('.'), 'current directory default');
 is("$dir", './', 'stringify');
-TODO: { local $TODO = 'stringify and append are confused';
-  is("$dir\n", "./\n", 'stringify');
-}
+is("$dir\n", "./\n", 'stringify');
 is($dir->part(0), '.');
 is($dir->part(-1), '.');
 
@@ -50,18 +48,19 @@ is($file, 'Build.PL', 'original unchanged');
   is($q, 'foo', 'q ok');
   is($f, 'fii', 's///');
   is(ref($f), 'File::Fu::File', 'object ok');
+  is(ref($f.''), '', 'stringify');
   my $s = $q & sub {s/o/i/g};
   is($q, 'foo', 'q ok');
   is($s, 'fii', 's///');
 }
 {
   my $f = File::Fu->file("foo");
-  my $d = $f . 'bar';
+  my $d = $f % 'bar';
   is($d, 'foobar', 'append');
   is(ref($d), 'File::Fu::File', 'object ok');
   is($f, 'foo', 'f ok');
   my $q = $f;
-  $f .= 'bar';
+  $f %= 'bar';
   is(ref($f), 'File::Fu::File', 'object ok');
   is($f, 'foobar', 'f ok');
   is($q, 'foo', 'q ok');
@@ -69,10 +68,10 @@ is($file, 'Build.PL', 'original unchanged');
 {
   my $d = File::Fu->dir("foo");
   my $q = $d;
-  my $r = $d . 'foo';
+  my $r = $d % 'foo';
   is($r, 'foofoo/', 'append');
   ok($d ne 'foofoo/', 'deref');
-  $d .= 'foo';
+  $d %= 'foo';
   is($r, 'foofoo/', 'r unbroken');
   is($q, 'foo/', 'q unbroken');
   ok($d ne $q, 'unbroken');

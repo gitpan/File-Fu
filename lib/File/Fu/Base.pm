@@ -1,5 +1,5 @@
 package File::Fu::Base;
-$VERSION = v0.0.2;
+$VERSION = v0.0.3;
 
 use warnings;
 use strict;
@@ -18,8 +18,8 @@ File::Fu::Base - nothing to see here
 use overload (
   '='  => sub {shift->clone(@_)},
   '""' => 'stringify',
-  '.=' => 'append',
-  '.'  => sub {shift->clonedo('append', @_)},
+  '%=' => 'append',
+  '%'  => sub {shift->clonedo('append', @_)},
   # can't overload s/// or accomplish anything with prototypes
   '&'  => sub {shift->clonedo('map', @_)},
   '&=' => 'map',

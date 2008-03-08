@@ -1,5 +1,5 @@
 package File::Fu::Dir;
-$VERSION = v0.0.2;
+$VERSION = v0.0.3;
 
 use warnings;
 use strict;
