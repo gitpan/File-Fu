@@ -1,5 +1,5 @@
 package File::Fu::Dir::Temp;
-$VERSION = v0.0.3;
+$VERSION = v0.0.4;
 
 use warnings;
 use strict;
@@ -66,6 +66,7 @@ sub new {
   my $temp = File::Temp::tempdir(@$send);
   my $self = $class->SUPER::new($temp);
   $self->{$_} = $opt->{$_} for(keys(%$opt));
+  $self->{_proc} = $$;
   $self->$set_dir_class(ref($dir));
 
   return($self);
@@ -93,6 +94,8 @@ Disable autocleanup.
 
 =cut
 
+# XXX I think this is named wrong -- should probably just delete the
+# dependency on File::Temp because I can't override that END block
 sub nocleanup {
   my $self = shift;
   $self->$set_auto_delete(0);
@@ -109,8 +112,17 @@ Called automatically when the object goes out of scope.
 
 sub DESTROY {
   my $self = shift;
-  #warn "DESTROY ", $self->stringify;
+
+  # ? should this have: return unless($self->auto_delete);
+
+  # forked case
+  return unless($$ == $self->{_proc});
+
+  my $string = $self->stringify;
+  #warn "DESTROY ($$/$self->{_proc}", $string;
   # XXX overload stops operating in DESTROY()?
+
+  die("$string does not exist") unless(-d $string);
   $self->remove;
   $self->{auto_delete} = 0;
 } # end subroutine DESTROY definition

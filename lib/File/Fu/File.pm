@@ -1,5 +1,5 @@
 package File::Fu::File;
-$VERSION = v0.0.3;
+$VERSION = v0.0.4;
 
 use warnings;
 use strict;
@@ -16,7 +16,7 @@ File::Fu::File - a filename object
   use File::Fu;
 
   my $file = File::Fu->new("path/to/file");
-  $file .= '.extension';
+  $file %= '.extension';
   $file->e and warn "$file exists";
 
   $file->l and warn "$file is a link to ", $file->readlink;
@@ -149,9 +149,13 @@ sub stringify {
 
 =head2 append
 
-  $newfile = $file->append('.gz');
+Append a string only to the filename part.
 
-  $file .= '.gz';
+  $file->append('.gz');
+
+  $file %= '.gz';
+
+(Yeah... I tried to use .=, but overloading hates me.)
 
 =cut
 
@@ -183,14 +187,31 @@ sub map :method {
 
 =head2 absolute
 
-Get an absolute name
+Get an absolute name (without checking the filesystem.)
+
+  my $abs = $file->absolute;
 
 =cut
 
 sub absolute {
   my ($self) = shift;
   return($self->dir->absolute->file($self->file));
-}
+} # end subroutine absolutely definition
+########################################################################
+
+=head2 absolutely
+
+Get an absolute name (resolved on the filesytem.)
+
+  my $abs = $file->absolutely;
+
+=cut
+
+sub absolutely {
+  my $self = shift;
+  return($self->dir->absolutely->file($self->file));
+} # end subroutine absolutely definition
+########################################################################
 
 =head1 Doing stuff
 
@@ -205,12 +226,39 @@ happens to be a directory.
 
 =cut
 
+# TODO should probably have our own filehandle so we can close in the
+# destructor and croak there too?
+
 sub open :method {
   my $self = shift;
   my $fh = IO::File->new($self, @_) or croak("cannot open '$self' $!");
   -d $fh and croak("$self is a directory");
   return($fh);
 } # end subroutine open definition
+########################################################################
+
+=head2 piped_open
+
+Opens a read pipe.  The file is appended to @command.
+
+  my $fh = $file->piped_open(@command);
+
+=cut
+
+sub piped_open {
+  my $self = shift;
+  my (@command) = @_;
+
+  # TODO some way to decide where self goes in @command
+  push(@command, $self);
+
+  # TODO closing STDIN and such before the fork?
+
+  # TODO here is where we need our own filehandle object again
+  my $pid = open(my $fh, '-|', @command) or
+    croak("cannot exec '@command' $!");
+  return($fh);
+} # end subroutine piped_open definition
 ########################################################################
 
 =head2 touch
@@ -229,6 +277,7 @@ sub touch {
   else {
     $self->open('>');
   }
+  return($self);
 } # end subroutine touch definition
 ########################################################################
 

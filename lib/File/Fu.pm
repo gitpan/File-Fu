@@ -1,5 +1,5 @@
 package File::Fu;
-$VERSION = v0.0.3;
+$VERSION = v0.0.4;
 
 use warnings;
 use strict;
@@ -44,6 +44,7 @@ you never need to check a return code.
 
 =cut
 
+use Cwd ();
 
 use File::Fu::File;
 use File::Fu::Dir;
@@ -103,7 +104,7 @@ sub file {
 
 =head2 tmp
 
-Your system's '/tmp/' directory (or equivelant of that.)
+Your system's '/tmp/' directory (or equivalent of that.)
 
   my $dir = File::Fu->tmp;
 
@@ -116,6 +117,104 @@ sub tmp {
   $tmp and return($tmp);
   return($tmp = $package->dir(File::Spec->tmpdir));
 }}
+########################################################################
+
+=head2 home
+
+User's $HOME directory.
+
+  my $dir = File::Fu->home;
+
+=cut
+
+{
+my $home; # XXX needs locking!
+sub home {
+  my $package = shift;
+  $home and return($home);
+  return($home = $package->dir($ENV{HOME}));
+}} # end subroutine home definition
+########################################################################
+
+=head2 program_name
+
+The absolute name of your program.  This will be relative from the time
+File::Fu was loaded.  It dies if the name is '-e'.
+
+  my $prog = File::Fu->program_name;
+
+If File::Fu was loaded after a chdir and the $0 was relative, calling
+program_name() throws an error.  (Unless you set $0 correctly before
+requiring File::Fu.)
+
+=head2 program_dir
+
+Returns what typically corresponds to program_name()->dirname, but
+just the compile-time cwd() when $0 is -e/-E.
+
+  my $dir = File::Fu->program_dir;
+
+=cut
+
+{
+# fun startup stuff and various logic:
+my $prog = $0;
+my $name_sub;
+my $dir_sub;
+if(lc($prog) eq '-e') {
+  my $prog_dir = Cwd::cwd();
+  $dir_sub  = eval(qq(sub {shift->dir("$prog_dir")}));
+  $name_sub = eval(qq(sub {croak("program_name => '$prog'")}));
+}
+else {
+  if(-e $prog) {
+    my $prog_name = __PACKAGE__->file($prog)->absolutely;
+    my $prog_dir = $prog_name->dirname;
+    $name_sub = eval(qq(sub {shift->file('$prog_name')}));
+    $dir_sub  = eval(qq(sub {shift->dir('$prog_dir')}));
+  }
+  else {
+    # runtime error
+    $dir_sub  = sub {croak("$prog not found => no program_dir known")};
+    $name_sub = sub {croak("$prog not found => no program_name known")};
+  }
+}
+*program_name = $name_sub;
+*program_dir  = $dir_sub;
+} # program_name/program_dir
+########################################################################
+
+=head1 Class Methods
+
+=head2 THIS_FILE
+
+A nicer way to say __FILE__.
+
+  my $file = File::Fu->THIS_FILE;
+
+=cut
+
+sub THIS_FILE {
+  my $package = shift;
+  my $name = (caller)[1];
+  return $package->file($name);
+} # end subroutine THIS_FILE definition
+########################################################################
+
+=head2 cwd
+
+The current working directory.
+
+  my $dir = File::Fu->cwd;
+
+=cut
+
+sub cwd {
+  my $package = shift;
+
+  defined(my $ans = Cwd::cwd()) or croak("cwd() failed");
+  return $package->dir($ans);
+} # end subroutine cwd definition
 ########################################################################
 
 =head1 Temporary Directories and Files

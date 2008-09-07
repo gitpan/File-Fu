@@ -16,6 +16,8 @@ t/dir.t
 t/end_bits.t
 t/errors.t
 t/finder.t
+t/global.t
 t/links.t
 t/slurp.t
 t/temp.t
+todo

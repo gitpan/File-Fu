@@ -1,5 +1,39 @@
 Revision history for File-Fu
 
+v0.0.4 2008-09-07
+
+  * resolve() method
+
+  * File::Fu->THIS_FILE
+
+  * chdir_for() and chdir_local() methods for Dir
+
+  * added slice parameter to map() for Dir
+
+  * File::Fu->program_name() / program_dir()
+
+  * File::Fu->cwd
+
+  * absolutely() method for Cwd-style resolution
+
+  * updated %= documentation
+
+  * added pipe_open() method for files
+
+  * chmod(), chdir() methods
+
+  * some handling of auto cleanup in Temp
+
+  * create() and mkdir() return self
+
+  * mode support in mkdir()
+
+  * File::Fu->home()
+
+  * part() and slice() methods in dir
+
+  * relative() has an optional $to argument
+
 v0.0.3 2008-03-08
 
   ! changed inner append to '%' from .

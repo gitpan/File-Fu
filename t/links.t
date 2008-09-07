@@ -60,6 +60,19 @@ ok(! $sl->e);
 $sl->unlink;
 ok(! $sl->l);
 
+# symlink->symlink->symlink
+{
+  my $tmp = File::Fu->dir('tmp.links.' . $$);
+  $tmp->mkdir;
+
+  my $file = $tmp->file('file')->touch;
+  is($file->resolve, $file);
+  my $link = $file->basename->symlink($tmp + 'link1');
+  is($link->resolve, $file);
+
+  $tmp->remove;
+}
+
 rmdir($tmp) or die "cannot delete '$tmp'";
 
 # vim:ts=2:sw=2:et:sta

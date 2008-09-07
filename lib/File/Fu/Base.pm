@@ -1,5 +1,5 @@
 package File::Fu::Base;
-$VERSION = v0.0.3;
+$VERSION = v0.0.4;
 
 use warnings;
 use strict;
@@ -134,28 +134,44 @@ sub is_absolute {
   File::Spec->file_name_is_absolute($_[0]->stringify);
 }
 
-=head2 absolute
-
-Get an absolute name
-
-=cut
-
-sub absolute {
-  my $self = shift;
-  return $self if $self->is_absolute;
-  return $self->new(File::Spec->rel2abs($self->stringify));
-}
-
 =head2 relative
 
-Get a relative name
+Get a relative name.
+
+  my $rel = $abs->relative;
+
+Also, with optional relative-to directory:
+
+  my $rel = $abs->relative($to);
 
 =cut
 
 sub relative {
   my $self = shift;
-  return $self->new(File::Spec->abs2rel($self->stringify));
+  my $base = shift;
+  return $self->new(File::Spec->abs2rel($self->stringify,
+    defined($base) ? "$base" : ()
+  ));
 }
+
+=head2 resolve
+
+Fully resolve any symlinks;
+
+  my $path = $path->resolve;
+
+=cut
+
+sub resolve {
+  my $self = shift;
+  while(1) {
+    return $self unless($self->l);
+    my $to = $self->readlink;
+    return $to  if($to->is_absolute);
+    $self = $self->new($self->dirname . $to);
+  }
+} # end subroutine resolve definition
+########################################################################
 
 =head2 utime
 
@@ -181,6 +197,20 @@ sub utime {
   }
   utime($at, $mt, $self) or croak("cannot utime '$self' $!");
 } # end subroutine utime definition
+########################################################################
+
+=head2 chmod
+
+  $path->chmod($mode);
+
+=cut
+
+sub chmod :method {
+  my $self = shift;
+  my ($mode) = @_;
+
+  chmod($mode, "$self") or croak("cannot chmod '$self' $!");
+} # end subroutine chmod definition
 ########################################################################
 
 =head1 Stat Object

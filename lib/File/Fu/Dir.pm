@@ -1,9 +1,11 @@
 package File::Fu::Dir;
-$VERSION = v0.0.3;
+$VERSION = v0.0.4;
 
 use warnings;
 use strict;
 use Carp;
+
+use Cwd ();
 
 use File::Path (); # for now
 
@@ -62,7 +64,9 @@ Always false for a directory.
 
 =cut
 
+use constant top_class => 'File::Fu';
 use constant file_class => 'File::Fu::File';
+use constant token_class => 'File::Fu::Dir::Token';
 use constant is_dir => 1;
 use constant is_file => 0;
 
@@ -132,12 +136,6 @@ sub stringify {
 } # end subroutine stringify definition
 ########################################################################
 
-=for note bareness
-A dir which is a symlink doesn't show -l if checked with '/' on the end
-of the string.
-
-=cut
-
 =begin shutup_pod_cover
 
 =head2 l
@@ -190,9 +188,11 @@ sub file {
 
 =head2 append
 
-  $newdir = $dir->append('.tmp');
+Append a string only to the last directory part.
 
-  $dir .= "something";
+  $dir->append('.tmp');
+
+  $dir %= "something";
 
 =cut
 
@@ -257,21 +257,83 @@ Shorthand for part(-1);
 
 sub end {shift->part(-1)};
 
+=head2 parts
+
+Retrieve the inner list of the directory's parts.
+
+  my @parts = $dir->parts;
+
+  my @parts = $dir->parts(0..2);
+
+The returned parts will be contiguous, but the request can be a
+two-element list (and can also end at -1.)
+
+  my @parts = $dir->parts(3, 7);
+
+  my @parts = $dir->parts(3, -1);
+
+=cut
+
+sub parts {
+  my $self = shift;
+  my @want = @_;
+  @want or return(@{$self->{dirs}});
+  if(@want == 2) {
+    if($want[1] < 0) {
+      $want[1] = $#{$self->{dirs}};
+    }
+    @want = $want[0]..$want[1];
+  }
+  # TODO else check contiguity?
+  return(@{$self->{dirs}}[@want]);
+} # end subroutine parts definition
+########################################################################
+
+=head2 slice
+
+Returns a new dir object as the return of parts().
+
+  my $slice = $dir->slice(0);
+
+  my $slice = $dir->slice(0,3);
+
+=cut
+
+sub slice {
+  my $self = shift;
+  $self = $self->clone;
+  @{$self->{dirs}} = $self->parts(@_);
+  return($self);
+} # end subroutine slice definition
+########################################################################
+
 =head2 map
 
 Execute a callback on each part of $dir.  The sub should modify $_ (yes,
 this is slightly unlike the map() builtin.)
 
-  $dir->map(sub {...});
+If $parts is defined as an integer or array reference of integers, it
+will be treated as a slice on the directory parts to which the map
+should be applied.
+
+  $dir->map(sub {...}, [@parts]);
 
   $dir &= sub {s/foo$/bar/};
+
+So, to modify only the first directory part:
+
+  $dir->map(sub {s/foo$/bar/}, 0);
 
 =cut
 
 sub map :method {
   my $self = shift;
-  my ($sub) = shift;
-  foreach my $dir (@{$self->{dirs}}) {
+  my ($sub, $parts) = @_;
+  my @parts = defined($parts) ? (ref($parts) ? @$parts : $parts) :
+    0..($#{$self->{dirs}});
+  # TODO actually use the parts() code for this
+  # warn "@parts"; 
+  foreach my $dir (@{$self->{dirs}}[@parts]) {
     local $_ = $dir;
     $sub->();
     $dir = $_;
@@ -334,6 +396,37 @@ sub dirname {
   @$dirs or return($self->new);
   return($self);
 } # end subroutine dirname definition
+########################################################################
+
+=head2 absolute
+
+Get an absolute name (without checking the filesystem.)
+
+  my $abs = $dir->absolute;
+
+=cut
+
+sub absolute {
+  my $self = shift;
+  return $self if $self->is_absolute;
+  return $self->new(File::Spec->rel2abs($self->stringify));
+} # end subroutine absolute definition
+########################################################################
+
+=head2 absolutely
+
+Get an absolute path (resolved on filesystem, so it must exist.)
+
+  my $abs = $dir->absolutely;
+
+=cut
+
+sub absolutely {
+  my $self = shift;
+  my $res = Cwd::abs_path($self->stringify);
+  defined($res) or croak("$self absolutely() not found");
+  return $self->new($res);
+} # end subroutine absolutely definition
 ########################################################################
 
 =head1 Doing stuff
@@ -561,11 +654,20 @@ Create the directory or croak with an error.
 
   $dir->mkdir;
 
+  $dir->mkdir(0700);
+
 =cut
 
 sub mkdir :method {
   my $self = shift;
-  mkdir($self) or croak("cannot mkdir('$self') $!");
+  if(@_) {
+    my $mode = shift(@_);
+    mkdir($self, $mode) or croak("cannot mkdir('$self', $mode) $!");
+  }
+  else {
+    mkdir($self) or croak("cannot mkdir('$self') $!");
+  }
+  return($self);
 } # end subroutine mkdir definition
 ########################################################################
 
@@ -579,7 +681,10 @@ Create the directory, with parents if needed.
 
 sub create {
   my $self = shift;
+  # TODO pass mode, but the verbose parameter is silly (should have been
+  # a callback or something -- so we'll end up reimplementing mkpath?)
   File::Path::mkpath("$self");
+  return($self);
 } # end subroutine create definition
 ########################################################################
 
@@ -654,12 +759,78 @@ sub symlink :method {
 
 =cut
 
-sub readlink {
+sub readlink :method {
   my $self = shift;
   my $name = readlink($self->bare);
   defined($name) or croak("cannot readlink '$self' $!");
   return($self->new($name));
 } # end subroutine readlink definition
+########################################################################
+
+=head1 Changing Directories
+
+
+=head2 chdir
+
+Change to the directory in self, returning a new '.' directory object.
+
+  $dir = $dir->chdir;
+
+=cut
+
+sub chdir :method {
+  my $self = shift;
+  chdir($self) or croak("cannot chdir '$self' $!");
+  # should return a new '.' object ?
+  return($self->new('.'));
+} # end subroutine chdir definition
+########################################################################
+
+=head2 chdir_for
+
+Change to $dir and run the given subroutine.  The sub will be passed a
+'./' directory object.
+
+  $dir->chdir_for(sub {...});
+
+=cut
+
+sub chdir_for {
+  my $self = shift;
+  my ($sub) = @_;
+  # we need to guarantee that we return, so we must implement the scoped
+  # version in order to implement the wrapper.
+  my $dot = $self->chdir_local;
+  $sub->($dot);
+} # end subroutine chdir_for definition
+########################################################################
+
+=head2 chdir_local
+
+Change to $dir, but return to the current cwd when $token goes out of
+scope.
+
+  my $token = $self->chdir_local;
+
+=cut
+
+sub chdir_local {
+  my $self = shift;
+  my $now = $self->top_class->cwd;
+  $self->chdir;
+  return $self->token_class->new->return_to($now);
+} # end subroutine chdir_local definition
+########################################################################
+BEGIN {
+package File::Fu::Dir::Token;
+our @ISA = qw('File::Fu::Dir);
+sub return_to {
+  my $self = shift;
+  $self->{return_to} = shift or croak("invalid usage");
+  return($self);
+}
+sub DESTROY { my $ret = shift->{return_to} or return; $ret->chdir; }
+}
 ########################################################################
 
 =head1 Temporary Directories and Files

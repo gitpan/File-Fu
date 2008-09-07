@@ -10,7 +10,7 @@ use File::Fu;
 {
   my $d = File::Fu->dir("foo." . $$);
   $d->e and $d->rmdir;
-  $d->mkdir;
+  is($d->mkdir, $d);
   ok($d->e, 'exists');
   ok($d->d, 'is a directory');
   $d->rmdir;
@@ -18,6 +18,7 @@ use File::Fu;
   eval { $d->touch };
   like($@, qr/^cannot/);
 
+  # make a file
   my $f = $d + 'foo';
   eval { $f->touch };
   like($@, qr/^cannot.*No such/);
@@ -28,6 +29,16 @@ use File::Fu;
   $f->unlink;
   $d->rmdir;
   ok(! $d->e, 'not exists');
+
+  { # check chdir_for(), cwd(), chdir()
+    $d->mkdir;
+    $f->touch;
+    my $cwd = File::Fu->cwd;
+    is_deeply([$d->chdir_for(sub {shift->list})], ['foo'], 'chdir_for');
+    is(File::Fu->cwd, $cwd);
+    $f->unlink;
+    $d->rmdir;
+  }
 
   my $dl = $d->symlink('link.' . $$);
   ok($dl->l, 'is a link');
@@ -70,6 +81,17 @@ use File::Fu;
   my @got;
   while(my $f = $it->()) { push(@got, $f); }
   is_deeply([sort @got], [@files], 'lister');
+  $d->remove;
+}
+{
+  my $d = File::Fu->dir('tmp.' . $$);
+  $d->e and $d->rmdir;
+  $d->mkdir(0400);
+  is($d->stat->mode & 07777, 0400) or die;
+  $d->chmod(0700);
+
+  is($d->chdir, './');
+  chdir('..') or die "oh no!";
   $d->remove;
 }
 
