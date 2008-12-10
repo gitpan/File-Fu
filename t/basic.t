@@ -53,10 +53,11 @@ is($file, 'Build.PL', 'original unchanged');
   is($q, 'foo', 'q ok');
   is($s, 'fii', 's///');
 }
+# append with override
 {
   my $f = File::Fu->file("foo");
   my $d = $f % 'bar';
-  is($d, 'foobar', 'append');
+  is($d, 'foobar', 'inner append');
   is(ref($d), 'File::Fu::File', 'object ok');
   is($f, 'foo', 'f ok');
   my $q = $f;
@@ -64,6 +65,12 @@ is($file, 'Build.PL', 'original unchanged');
   is(ref($f), 'File::Fu::File', 'object ok');
   is($f, 'foobar', 'f ok');
   is($q, 'foo', 'q ok');
+}
+# append as method
+{
+  my $f = File::Fu->file("foo");
+  $f->append('baz');
+  is($f, 'foobaz');
 }
 {
   my $d = File::Fu->dir("foo");
@@ -97,6 +104,14 @@ is($file, 'Build.PL', 'original unchanged');
   is($d->part(0), 'foo');
   is($d->part(1), 'bar');
   is($d->part(-1), 'bar');
+}
+
+# $dir + 'path/and/file'
+{
+  my $dir = File::Fu->dir('foo');
+  my $file = $dir + 'this/and/that';
+  is($file->basename, 'that');
+  is($file->dirname, 'foo/this/and/');
 }
 
 # vim:ts=2:sw=2:et:sta

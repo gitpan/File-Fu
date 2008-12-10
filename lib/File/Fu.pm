@@ -1,5 +1,5 @@
 package File::Fu;
-$VERSION = v0.0.4;
+$VERSION = v0.0.5;
 
 use warnings;
 use strict;
@@ -13,11 +13,13 @@ File::Fu - file and directory objects
 
 The directory constructor:
 
+  use File::Fu;
+
   my $dir = File::Fu->dir("bar");
-  print "$dir\n"; # 'dir/'
+  print "$dir\n"; # 'bar/'
 
   my $file = $dir + 'bar.txt';
-  print "$file\n"; # 'foo/bar.txt'
+  print "$file\n"; # 'bar/bar.txt'
 
   my $d2 = $dir % 'baz'; # 'barbaz/'
   my $d3 = $dir / 'bat'; # 'bar/bat/'

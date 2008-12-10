@@ -1,5 +1,5 @@
 package File::Fu::Dir::Temp;
-$VERSION = v0.0.4;
+$VERSION = v0.0.5;
 
 use warnings;
 use strict;
@@ -85,6 +85,8 @@ sub clone {
   bless($self, $self->dir_class);
 } # end subroutine clone definition
 ########################################################################
+
+# TODO File::Fu->temp_dir->chdir causes immediate deletion?
 
 =head2 nocleanup
 

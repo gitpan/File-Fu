@@ -13,6 +13,7 @@ README
 t/00-load.t
 t/basic.t
 t/dir.t
+t/dirlinks.t
 t/end_bits.t
 t/errors.t
 t/finder.t

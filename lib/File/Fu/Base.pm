@@ -1,5 +1,5 @@
 package File::Fu::Base;
-$VERSION = v0.0.4;
+$VERSION = v0.0.5;
 
 use warnings;
 use strict;
@@ -173,6 +173,23 @@ sub resolve {
 } # end subroutine resolve definition
 ########################################################################
 
+=head2 relative_symlink
+
+Where $path and $linkname are both relative to the current directory.
+
+  $path->relative_symlink($linkname);
+
+=cut
+
+sub relative_symlink {
+  my $self = shift;
+  my ($link) = @_;
+
+  my $rel = $self->relative($self->new($link)->dirname);
+  return($rel->symlink($link));
+} # end subroutine relative_symlink definition
+########################################################################
+
 =head2 utime
 
 Update the file timestamps.
@@ -249,6 +266,38 @@ sub lstat {
     croak("cannot lstat '$self' $!");
   return($st);
 } # end subroutine lstat definition
+########################################################################
+
+=head2 is_same
+
+Returns true if the two paths are the same.  This is by string equality,
+then (if both paths exist) by device+inode equality.
+
+  $bool = $path->is_same($other);
+
+=cut
+
+sub is_same {
+  my $self = shift;
+  my ($other) = @_;
+  unless(ref $other) {
+    my $proto = ($self->is_file and $other =~ m#/$#) ?
+      $self->dir_class : $self;
+    $other =  $proto->new($other);
+  }
+  return(1) if($self eq $other);
+  return(0) if($self->is_dir != $other->is_dir);
+  my $n = 0;
+  # TODO just check absolutely?
+  # this currently probably misses non-existent files where the dirname
+  # resolves to the same location.
+  my ($s1, $s2) = map({eval {$_->stat}} $self, $other);
+  return(0) unless($s1 and $s2);
+  return(
+    $s1->dev eq $s2->dev and
+    $s1->ino eq $s2->ino
+  );
+} # end subroutine is_same definition
 ########################################################################
 
 =head1 AUTHOR

@@ -10,6 +10,7 @@ use File::Fu;
 my $tmp = File::Fu->dir('tmp');
 mkdir($tmp);
 
+# make a file
 my $file = $tmp + 'file';
 is($file, 'tmp/file');
 my $fh = $file->open('>');
@@ -17,6 +18,7 @@ print $fh "yay\n";
 close($fh) or die "cannot write '$file' $!";
 ok($file->e);
 
+# hardlink
 my $link = $file->link($tmp->file('link')->stringify);
 is($link, 'tmp/link');
 
@@ -71,6 +73,22 @@ ok(! $sl->l);
   is($link->resolve, $file);
 
   $tmp->remove;
+}
+
+# relative symlink
+{
+  my $file = $tmp->file('file')->touch;
+  ok($file->e);
+  my $dir = $tmp->subdir('dir')->mkdir;
+  ok($dir->d);
+  my $link = $file->relative_symlink($dir + 'and');
+  ok($link->l);
+  ok($link->e);
+  $file->unlink;
+  ok(! $file->e);
+  ok(! $link->e);
+  $link->unlink;
+  $dir->rmdir;
 }
 
 rmdir($tmp) or die "cannot delete '$tmp'";

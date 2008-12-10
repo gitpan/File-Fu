@@ -1,5 +1,5 @@
 package File::Fu::File;
-$VERSION = v0.0.4;
+$VERSION = v0.0.5;
 
 use warnings;
 use strict;
@@ -15,7 +15,7 @@ File::Fu::File - a filename object
 
   use File::Fu;
 
-  my $file = File::Fu->new("path/to/file");
+  my $file = File::Fu->file("path/to/file");
   $file %= '.extension';
   $file->e and warn "$file exists";
 
@@ -365,6 +365,10 @@ sub readlink :method {
 } # end subroutine readlink definition
 ########################################################################
 
+########################################################################
+{ # a closure for this variable
+my $has_slurp;
+
 =head2 read
 
 Read the entire file into memory (or swap!)
@@ -378,8 +382,6 @@ See L<File::Slurp/read_file>.
 
 =cut
 
-{
-my $has_slurp;
 sub read :method {
   my $self = shift;
   my @args = @_;
@@ -397,7 +399,96 @@ sub read :method {
     local $/ = wantarray ? $/ : undef;
     return(<$fh>);
   }
-}} # end subroutine read definition
+} # end subroutine read definition
+########################################################################
+
+=head2 write
+
+Write the file's contents.
+
+  $file->write($content);
+
+If File::Slurp is available, $content may be either a scalar, scalar
+ref, or array ref.
+
+  $file->write($content, %args);
+
+=cut
+
+sub write {
+  my $self = shift;
+  my ($content, @args) = @_;
+
+  $has_slurp ||= eval {require File::Slurp; 1} || -1;
+
+  if($has_slurp > 0) {
+    local $Carp::CarpLevel = 1;
+    return(File::Slurp::write_file("$self",
+      {@args, err_mode => 'croak'},
+      $content
+    ));
+  }
+  else {
+    croak("must have File::Slurp for fancy writes")
+      if(@args or ref($content));
+    my $fh = $self->open('>');
+    print $fh $content;
+    close($fh) or croak("write '$self' failed: $!");
+  }
+} # end subroutine write definition
+########################################################################
+} # File::Slurp closure
+########################################################################
+
+=head2 copy
+
+  $file->copy($dest);
+
+=cut
+
+sub copy {
+  my $self = shift;
+  my ($dest) = shift;
+  my (%opts) = @_;
+
+  # decide if this is file-to-dir or file-to-file
+  if(-d $dest) {
+    $dest = $self->dir_class->new($dest)->file($self->basename);
+  }
+  else {
+    $dest = $self->new($dest) unless(ref($dest));
+  }
+  if($dest->e) {
+    croak("'$dest' and '$self' are the same file")
+      if($self->is_same($dest));
+  }
+
+  # TODO here's another good reason to have our own filehandle object:
+  # This fh-copy should be in there.
+  my $ifh = $self->open;
+  my $ofh = $dest->open('>');
+  binmode($_) for($ifh, $ofh);
+  while(1) {
+    my $buf;
+    defined(my $r = sysread($ifh, $buf, 1024)) or
+      croak("sysread failed $!");
+    $r or last;
+    # why did File::Copy::copy do it like this?
+    for(my $t = my $w = 0; $w < $r; $w += $t) {
+      $t = syswrite($ofh, $buf, $r - $w, $w) or
+        croak("syswrite failed $!");
+    }
+  }
+  close($ofh) or croak("write '$dest' failed: $!");
+  # TODO some form of rollback?
+
+  # TODO handle opts
+  #if($opts{preserve}) {
+  #  # TODO chmod/chown and such
+  #  $dest->utime($self->stat->mtime);
+  #}
+
+} # end subroutine copy definition
 ########################################################################
 
 =head1 AUTHOR

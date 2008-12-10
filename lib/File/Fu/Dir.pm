@@ -1,5 +1,5 @@
 package File::Fu::Dir;
-$VERSION = v0.0.4;
+$VERSION = v0.0.5;
 
 use warnings;
 use strict;
@@ -17,6 +17,18 @@ use File::Fu::File::Temp;
 File::Fu::Dir - a directoryname object
 
 =head1 SYNOPSIS
+
+  use File::Fu;
+
+  my $dir = File::Fu->dir("path/to/dir");
+  $dir->e and warn "$dir exists";
+
+  $dir->l and warn "$dir is a link to ", $dir->readlink;
+
+  foreach my $entry ($dir->list) {
+    warn $entry . ': ' . $entry->stat->size, "\n"
+      if($entry->f);
+  }
 
 =cut
 
@@ -181,6 +193,15 @@ sub file {
   my $self = shift;
   my ($name, $rev) = @_;
   $rev and croak("bah");
+
+  # filename might have dir parts
+  if($name =~ m#/#) {
+    my $bit = $self->file_class->new($name);
+    return $self->file_class->new_direct(
+      dir  => $self->subdir($bit->dirname),
+      file => $bit->basename
+    );
+  }
 
   return($self->file_class->new_direct(dir => $self, file => $name));
 } # end subroutine file definition
@@ -733,21 +754,21 @@ sub unlink :method {
 
 =head2 symlink
 
-  my $link = $file->symlink($linkname);
+Create a symlink which points to $dir.
 
-Note that symlinks are relative to where they live.
+  my $link = $dir->symlink($linkname);
 
-  my $dir = File::Fu->dir("foo");
-  my $file = $dir+'file';
-  # $file->symlink($dir+'link'); is a broken link
-  my $link = $file->basename->symlink($dir+'link');
+Note that symlinks are relative to where they live, so if $dir is a
+relative path, it must be relative to $linkname.
 
 =cut
 
 sub symlink :method {
   my $self = shift;
   my ($name) = @_;
-  symlink($self->bare, $name) or
+
+  $name =~ s#/$##; # stringify and strip
+  symlink($self, $name) or
     croak("symlink '$self' to '$name' failed $!");
   return($self->new($name));
 } # end subroutine symlink definition
@@ -801,7 +822,8 @@ sub chdir_for {
   # we need to guarantee that we return, so we must implement the scoped
   # version in order to implement the wrapper.
   my $dot = $self->chdir_local;
-  $sub->($dot);
+  # XXX bah.  the $token binds weirdly in 5.6.2
+  return $sub->($self->new('.'));
 } # end subroutine chdir_for definition
 ########################################################################
 
@@ -825,8 +847,8 @@ BEGIN {
 package File::Fu::Dir::Token;
 our @ISA = qw('File::Fu::Dir);
 sub return_to {
-  my $self = shift;
-  $self->{return_to} = shift or croak("invalid usage");
+  my $self = shift(@_);
+  $self->{return_to} = shift(@_) or croak("invalid usage");
   return($self);
 }
 sub DESTROY { my $ret = shift->{return_to} or return; $ret->chdir; }
