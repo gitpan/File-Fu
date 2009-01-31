@@ -1,5 +1,5 @@
 package File::Fu::Dir;
-$VERSION = v0.0.5;
+$VERSION = v0.0.6;
 
 use warnings;
 use strict;
@@ -931,5 +931,6 @@ under the same terms as Perl itself.
 
 =cut
 
+require File::Fu;
 # vi:ts=2:sw=2:et:sta
 1;

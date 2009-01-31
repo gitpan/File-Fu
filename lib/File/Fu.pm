@@ -1,5 +1,5 @@
 package File::Fu;
-$VERSION = v0.0.5;
+$VERSION = v0.0.6;
 
 use warnings;
 use strict;
@@ -218,6 +218,35 @@ sub cwd {
   return $package->dir($ans);
 } # end subroutine cwd definition
 ########################################################################
+
+=head2 which
+
+Returns File::Fu::File objects of ordered candidates for $name found in
+the path.
+
+  my @prog = File::Fu->which($name) or die "cannot find $name";
+
+If called in scalar context, returns a single File::Fu::File object or throws an error if no candidates were found.
+
+  my $prog = File::Fu->which($name);
+
+=cut
+
+sub which {
+  my $package = shift;
+  croak("must have an argument") unless(@_);
+  my ($what) = @_;
+
+  require File::Which;
+  if(wantarray) {
+    return map({$package->file($_)} File::Which::which($what));
+  }
+  else {
+    my $found = scalar(File::Which::which($what)) or
+      croak("cannot locate '$what' in PATH");
+    return $package->file($found);
+  }
+} # which ##############################################################
 
 =head1 Temporary Directories and Files
 

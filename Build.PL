@@ -9,8 +9,9 @@ my $builder = $build_class->new(
   license             => 'perl',
   dist_version_from   => 'lib/File/Fu.pm',
   requires => {
-    'IO::File'   => 0, # TODO check version
-    'File::Spec' => 0, # TODO remove
+    'IO::File'                => 0, # TODO check version
+    'File::Spec'              => 0, # TODO remove
+    'File::Which'             => 0.05,
     'Class::Accessor::Classy' => 'v0.9.0',
   },
   build_requires => {
@@ -27,7 +28,7 @@ my $builder = $build_class->new(
         'http://rt.cpan.org/NoAuth/Bugs.html?Dist=File-Fu',
       #MailingList => 'mailto:...',
       repository =>
-        'http://scratchcomputing.com/svn/File-Fu/trunk',
+        'http://svn.scratchcomputing.com/File-Fu/trunk',
     }
   },
 );

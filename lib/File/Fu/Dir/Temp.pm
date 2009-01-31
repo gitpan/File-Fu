@@ -1,5 +1,5 @@
 package File::Fu::Dir::Temp;
-$VERSION = v0.0.5;
+$VERSION = v0.0.6;
 
 use warnings;
 use strict;

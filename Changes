@@ -1,5 +1,11 @@
 Revision history for File-Fu
 
+v0.0.6 2009-01-31
+
+  * added File::Fu->which() ala File::Which::which
+
+  * supporting e.g. 'use File::Fu::File' as the entry-point
+
 v0.0.5 2008-12-09
 
   * added is_same() method
@@ -81,6 +87,6 @@ v0.0.1 2008-02-18
   * first public release
 
 See the source code repository for more detail.
-  http://scratchcomputing.com/svn/File-Fu/trunk
+  http://svn.scratchcomputing.com/File-Fu/trunk
 
 vim:ts=2:sw=2:et:sta
