@@ -1,5 +1,5 @@
 package File::Fu::Dir::Temp;
-$VERSION = v0.0.6;
+$VERSION = v0.0.7;
 
 use warnings;
 use strict;
@@ -73,6 +73,20 @@ sub new {
 }} # end subroutine new definition
 ########################################################################
 
+=head2 chdir
+
+  my $dir = $dir->chdir;
+
+=cut
+
+sub chdir {
+  my $self = shift;
+
+  my $dir = $self->SUPER::chdir;
+  $dir->{temp_parent} = $self;
+  return($dir);
+} # chdir ##############################################################
+
 =for nit head2 clone
 Because clone doesn't call new :-/
   $not_temp = $temp->clone;
@@ -85,6 +99,21 @@ sub clone {
   bless($self, $self->dir_class);
 } # end subroutine clone definition
 ########################################################################
+
+=head2 rename
+
+Same as the base rename(), but promotes the temp dir to a regular Dir
+object (prevents any cleanup actions.)
+
+  $temp = $temp->rename($dest);
+
+=cut
+
+sub rename {
+  my $self = shift->SUPER::rename(@_);
+  bless($self, $self->dir_class);
+  return($self);
+}
 
 # TODO File::Fu->temp_dir->chdir causes immediate deletion?
 
@@ -115,7 +144,8 @@ Called automatically when the object goes out of scope.
 sub DESTROY {
   my $self = shift;
 
-  # ? should this have: return unless($self->auto_delete);
+  # ? should this have:
+  return unless($self->auto_delete);
 
   # forked case
   return unless($$ == $self->{_proc});

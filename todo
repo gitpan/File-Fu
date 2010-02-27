@@ -11,9 +11,12 @@ o coverage:
     $file->dirname->map([qw(wav flac)], 0);
     ($file &= λ{s/wav/flac/})->dirname &= λ{s/wav/flac/};
     $file->map(λ{s/\.wav$/flac/})->dirname->map(λ{s/wav/flac/}, 0);
-o $dir + 'foo/bar' problem
+x $dir + 'foo/bar' problem
 o freedesktop
   o home
   o mimeinfo
   o basedir
 o resolve() symlink chase-down
+
+o URI support?
+  - is that just a subclass with a volume-like thing?

@@ -1,5 +1,5 @@
 package File::Fu::Dir;
-$VERSION = v0.0.6;
+$VERSION = v0.0.7;
 
 use warnings;
 use strict;
@@ -166,7 +166,7 @@ Stringify without the trailing slash/assertion.
 
 The trailing slash causes trouble when trying to address a symlink to a
 directory via a dir object.  Thus, C<-l $dir> doesn't work, but
-C<$dir->l> does.
+C<$dir-E<gt>l> does the same thing as C<-l $dir-E<gt>bare>.
 
 =cut
 
@@ -287,11 +287,13 @@ Retrieve the inner list of the directory's parts.
   my @parts = $dir->parts(0..2);
 
 The returned parts will be contiguous, but the request can be a
-two-element list (and can also end at -1.)
+two-element list (and can also start or end at negative indices.)
 
   my @parts = $dir->parts(3, 7);
 
   my @parts = $dir->parts(3, -1);
+
+  my @parts = $dir->parts(-5, -1);
 
 =cut
 
@@ -300,8 +302,11 @@ sub parts {
   my @want = @_;
   @want or return(@{$self->{dirs}});
   if(@want == 2) {
-    if($want[1] < 0) {
-      $want[1] = $#{$self->{dirs}};
+    foreach my $end (@want) {
+      $end = $#{$self->{dirs}} + 1 + $end if($end < 0);
+    }
+    if($want[0] > $want[1]) {
+      croak("first endpoint '$want[0]' is after last '$want[1]'");
     }
     @want = $want[0]..$want[1];
   }
@@ -576,9 +581,39 @@ sub iterate_contents {
 
 =head2 find
 
-Not the same as File::Find::find().
+Recursively search a directory's contents for items where the supplied
+coderef (matcher) returns true.  The matcher will be invoked with the
+topic (C<$_>) set to the current path (which is either a Dir or File
+object.) The return values will be File::Fu::File or File::Fu::Dir
+objects.
 
-  my @files = $dir->find(sub {m/foo/});
+If your matcher returns true, the topic will be added to the return
+values.
+
+  my @paths = $dir->find(sub {m/foo/});
+
+There is a knob for controlling recursion, which is the first argument
+to your matcher.
+
+  my @pm_files = $dir->find(sub {
+    return shift->prune
+      if($_->is_dir and $_->part(-1) =~ m/^\.svn$/);
+    $_->is_file and m/\.pm$/;
+  });
+
+=over
+
+=item Differences from File::Find::find()
+
+The invocant (C<$dir> aka '.') is not examined (because this is an
+object method, there is always only one starting path.)
+
+The topic is always absolute in the same sense as the invocant.  That
+is, if C<$dir> is relative to your current directory, then so are the
+topics and return values.  If C<$dir> is absolute, so are the topics and
+return values.
+
+=back
 
 =cut
 
@@ -597,7 +632,9 @@ sub find {
 
 =head2 finder
 
-Returns an iterator for finding files.
+Returns an iterator for finding files.  This iterator does everything
+that find() does, but returns one path at a time.  Returns undef when
+exhausted and zero when it is just taking a break.
 
   my $subref = $dir->finder(sub {$_->is_file and $_->file =~ m/foo/});
 
@@ -605,22 +642,17 @@ This allows a non-blocking find.
 
   while(defined(my $path = $subref->())) {
     $path or next; # 0 means 'not done yet'
-    # do something with $path (is a file or dir object)
+    # do something with $path (a file or dir object)
   }
 
-And there is a knob:
-
-  my $finder = $dir->finder(sub {
-    return shift->prune
-      if($_->is_dir and $_->part(-1) =~ m/^\.svn$/);
-    $_->is_file and m/\.pm$/;
-  });
+The find() method is implemented in terms of finder() by simply using a
+while() loop and accumulating the return values.
 
 =cut
 
 sub finder {
   my $self = shift;
-  my ($matcher, @opt) = @_;
+  my ($matcher, @opt) = @_; # TODO support options e.g. loops
 
   my %opt = (all => 1);
 
@@ -637,9 +669,8 @@ sub finder {
           ($self, $reader) = ($path, undef);
         }
         local $_ = $path;
-        #warn "  check $path\n";
         my $ok = $matcher->(my $knob = File::Fu::Dir::FindKnob->new);
-        if($knob->pruned) {
+        if($knob->pruned and not $path->l) { # XXX nofollow assumption
           ($self, $reader) = @{pop(@stack)};
         }
         if($ok) {
@@ -658,6 +689,24 @@ sub finder {
   return($it);
 } # end subroutine finder definition
 ########################################################################
+
+=head2 The FindKnob object
+
+The FindKnob object allows you to control the next steps of find().
+Methods called on it will typically return a value which also makes
+sense as a return value of your matcher sub.  Thus the idiom:
+
+  $dir->find(sub {return shift->prune if(condition); ...})
+
+=over
+
+=item prune
+
+Do not recurse into the topic directory.  Returns false.
+
+=back
+
+=cut
 
 BEGIN {
 package File::Fu::Dir::FindKnob;

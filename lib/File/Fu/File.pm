@@ -1,5 +1,5 @@
 package File::Fu::File;
-$VERSION = v0.0.6;
+$VERSION = v0.0.7;
 
 use warnings;
 use strict;
@@ -319,25 +319,6 @@ sub symlink :method {
 
 # TODO
 # my $link = $file->dwimlink(absolute|relative|samedir => $linkname);
-
-=head2 rename
-
-Calls the builtin rename() on the $file and returns a new object with
-that name.
-
-  $file = $file->rename($newname);
-
-=cut
-
-sub rename :method {
-  my $self = shift;
-  my ($name) = @_;
-
-  rename($self, $name) or
-    croak("cannot rename '$self' to '$name' $!");
-  return($self->new($name));
-} # end subroutine rename definition
-########################################################################
 
 =head2 unlink
 
