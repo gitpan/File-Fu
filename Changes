@@ -1,5 +1,21 @@
 Revision history for File-Fu
 
+v0.0.8 2013-06-02
+
+  * fixed t/findknob.t failures / logic
+
+  * added File move(), mkfifo(), sysopen()
+
+  * made File write() chainable
+
+  * added write() and do() to temp filehandles
+
+  * added remove() to File
+
+  * added relative_to() method
+
+  * fixed a regression in the temp dir rename() method
+
 v0.0.7 2010-02-27
 
   * much better documentation for File::Fu::Dir::find()

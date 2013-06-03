@@ -1,5 +1,5 @@
 package File::Fu::Dir::Temp;
-$VERSION = v0.0.7;
+$VERSION = v0.0.8;
 
 use warnings;
 use strict;
@@ -110,8 +110,10 @@ object (prevents any cleanup actions.)
 =cut
 
 sub rename {
-  my $self = shift->SUPER::rename(@_);
-  bless($self, $self->dir_class);
+  my $self = shift;
+  my $dir_class = $self->dir_class;
+  $self = $self->SUPER::rename(@_);
+  bless($self, $dir_class);
   return($self);
 }
 

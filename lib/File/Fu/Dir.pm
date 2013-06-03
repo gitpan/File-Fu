@@ -1,5 +1,5 @@
 package File::Fu::Dir;
-$VERSION = v0.0.7;
+$VERSION = v0.0.8;
 
 use warnings;
 use strict;
@@ -62,7 +62,8 @@ sub new {
 
 =head2 file_class
 
-Return the corresponding file class for this dir object.
+Return the corresponding file class for this dir object.  Default:
+L<File::Fu::File>.
 
   my $fc = $class->file_class;
 
@@ -85,6 +86,8 @@ use constant is_file => 0;
 ########################################################################
 
 =head2 temp_dir_class
+
+Class for L</temp_dir> objects.  Default: L<File::Fu::Dir::Temp>.
 
   my $class = File::Fu::Dir->temp_dir_class;
 
@@ -233,7 +236,7 @@ sub append {
 
   $newdir = $dir->subdir('foo');
 
-  $dir /= 'foo';
+  $newdir = $dir / 'foo';
 
 =cut
 

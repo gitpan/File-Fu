@@ -4,8 +4,10 @@
 \bSCCS\b
 ,v$
 \B\.svn\b
+\B\.git\b
 \b_darcs\b
 \b.cvsignore\b
+^.gitignore$
 
 # Avoid Makemaker generated and utility files.
 \bMANIFEST\.bak
@@ -36,3 +38,4 @@
 
 TODO
 ^MYMETA.yml$
+^MYMETA.json$

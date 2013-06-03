@@ -43,5 +43,24 @@ ok(! $subdir->isa('File::Fu::Dir::Temp'));
   ok(! -e $fn, 'gone');
 }
 
+{ # write+do
+  my @stuff = ("thbbt\n", "xo094auc\n", "\n  \n...ee\n");
+  my $n;
+  is(scalar(
+    File::Fu->temp_file->write(@stuff)->do(sub {
+      $n = ''.$_->name;
+      ok(-e $n);
+      $_->name->read
+    })
+  ), join('',@stuff), "write temp file");
+  ok(not(-e $n), "$n gone");
+}
+{
+  my $x = File::Fu->temp_file;
+  $x->write("...");
+  eval {$x->write("\n")};
+  like(($@||''), qr/^write\(\) on closed tempfile/);
+}
+
 
 # vim:ts=2:sw=2:et:sta

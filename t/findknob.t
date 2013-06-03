@@ -17,21 +17,26 @@ $foo->mkdir;
 $foo->basename->symlink($topdir/'link');
 ($foo+$_)->touch for('a'..'z');
 
-# bah!
-my $x = do {
-  my @files = $topdir->list;
-  my ($i) = grep({$files[$_]->basename eq 'foo/'} 0..$#files);
-  $_->unlink for(@files[($i+1)..$#files]);
-  #warn join("|", $topdir->contents);
-  $files[0]->basename;
-};
+# TODO multiple runs / fs order permutation?
+my $x = 'j';
 
-my @files = $topdir->find(sub {
-  #warn $_;
-  $_->is_dir and return(shift->prune);
-  $_->basename eq $x
-});
+{ # without prune => recurse
+  my @files = $topdir->find(sub {
+    $_->basename eq $x
+  });
 
-is(scalar(@files), 1);
+  is(join('|', sort @files), join('|', sort
+    $foo + $x,
+    $topdir + $x
+  ));
+}
+{ # with prune
+  my @files = $topdir->find(sub {
+    return shift->prune if $_->is_dir;
+    $_->basename eq $x
+  });
+
+  is(join('|', sort @files), $topdir + $x);
+}
 
 # vim:ts=2:sw=2:et:sta

@@ -8,6 +8,7 @@ lib/File/Fu/File.pm
 lib/File/Fu/File/Temp.pm
 MANIFEST
 MANIFEST.SKIP
+META.json
 META.yml
 README
 t/00-load.t

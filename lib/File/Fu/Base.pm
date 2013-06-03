@@ -1,5 +1,5 @@
 package File::Fu::Base;
-$VERSION = v0.0.7;
+$VERSION = v0.0.8;
 
 use warnings;
 use strict;
@@ -28,6 +28,7 @@ use overload (
   # invalid methods
   '-'      => sub {shift->error('-')},
   '*'      => sub {shift->error('*')},
+  '~'      => sub {~ shift->stringify},
   nomethod => sub {shift->error($_[2])},
 );
 
@@ -152,6 +153,20 @@ sub relative {
   return $self->new(File::Spec->abs2rel($self->stringify,
     defined($base) ? "$base" : ()
   ));
+}
+
+=head2 relative_to
+
+Same as relative(), but requires the $dir argument.
+
+  my $rel = $abs->relative_to($dir);
+
+=cut
+
+sub relative_to {
+  my $self = shift;
+  my $base = shift or croak('relative_to() requires a $dir');
+  return $self->relative($base);
 }
 
 =head2 resolve

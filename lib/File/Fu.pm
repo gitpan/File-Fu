@@ -1,5 +1,5 @@
 package File::Fu;
-$VERSION = v0.0.7;
+$VERSION = v0.0.8;
 
 use warnings;
 use strict;
@@ -278,6 +278,37 @@ sub temp_file {
 } # end subroutine temp_file definition
 ########################################################################
 
+=head1 Operators
+
+If you choose not to use the overloaded operators, you can just say
+C<$obj-E<gt>stringify()> or "$obj" whenever you want to drop the
+object-y nature and treat the path as a string.
+
+The operators can be convenient for building-up path names, but you
+probably don't want to think of them as "math on filenames", because
+they are nothing like that.
+
+The '+' and '/' operators only apply to directory objects.
+
+  op   method                     mnemonic
+  --   ----------------           --------------------
+  +    $d->file($b) ............. plus (not "add")
+  /    $d->subdir($b) ........... slash (not "divide")
+
+The other operators apply to both files and directories.
+
+  op   method                     mnemonic
+  --   ----------------           --------------------
+  %=   $p->append($b) ........... mod(ify)
+  %    $p->clone->append($b)      
+  &=   $p->map(sub{...}) ........ invoke subref
+  &    $p->clone->map(sub {...})
+
+Aside:  It would be more natural to use C<.=> as append(), but the way
+perl compiles C<"$obj foo"> into C<$obj . " foo"> makes it impossible to
+do the right thing because the lines between object and string are too
+ambiguous.
+
 =head1 Subclassing
 
 You may wish to subclass File:Fu and override the dir_class() and/or
@@ -287,6 +318,14 @@ file_class() class methods to point to your own Dir/File subclasses.
   my $dir = $class->dir("foo");
 
 See L<File::Fu::File> and L<File::Fu::Dir> for more info.
+
+=head2 dir_class
+
+  File::Fu->dir_class # File::Fu::Dir
+
+=head2 file_class
+
+  File::Fu->file_class # File::Fu::File
 
 =head1 See Also
 

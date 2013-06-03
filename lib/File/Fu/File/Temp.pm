@@ -1,5 +1,5 @@
 package File::Fu::File::Temp;
-$VERSION = v0.0.7;
+$VERSION = v0.0.8;
 
 use warnings;
 use strict;
@@ -143,6 +143,51 @@ sub nocleanup {
 } # end subroutine nocleanup definition
 ########################################################################
 
+=head2 write
+
+Write @content to the tempfile and close it.
+
+  $handle = $handle->write(@content);
+
+=cut
+
+sub write {
+  my $self = shift;
+  my (@content) = @_;
+  do {
+    local $SIG{__WARN__} = sub { # ugh
+      my $x = shift;
+      local $Carp::Level = 1;
+      if($x =~ m/^print\(\) on closed filehandle/) {
+        croak("write() on closed tempfile");
+      }
+      my $file = __FILE__;
+      $x =~ s/ at \Q$file\E .*\n//;
+      warn Carp::shortmess($x);
+    };
+    print $self @content;
+  };
+  close($self) or croak("write '" . $_->name . "' failed: $!");
+  return $self;
+} # write ##############################################################
+
+=head2 do
+
+Execute subref with $handle as $_.  If you chain this with the
+constructor, the destructor cleanup will happen immediately after sub
+has returned.
+
+  my @x = $handle->do(sub {something($_->name); ...});
+
+=cut
+
+sub do {
+  my $self = shift;
+  my ($sub) = @_;
+  local $_ = $self;
+  return $sub->();
+} # do #################################################################
+
 =head2 DESTROY
 
 Called automatically when the handle goes out of scope.
@@ -158,6 +203,12 @@ sub DESTROY {
   $self->name->unlink;
 } # end subroutine DESTROY definition
 ########################################################################
+
+=head2 XXX
+
+Constant representing a chunk of X characters.
+
+=cut
 
 use constant XXX => 'X'x10;
 

@@ -15,7 +15,7 @@ my $builder = $build_class->new(
     'Class::Accessor::Classy' => 'v0.9.0',
   },
   build_requires => {
-    'Module::Build' => 0.26,
+    'Module::Build' => 0.38,
     'Test::More'    => 0,
   },
   add_to_cleanup      => [ qw(File-Fu-* META.yml)],
@@ -23,12 +23,12 @@ my $builder = $build_class->new(
   meta_merge => {
     resources => {
       homepage =>
-        'http://scratchcomputing.com/',
+        'http://enobacon.com/',
       bugtracker =>
         'http://rt.cpan.org/NoAuth/Bugs.html?Dist=File-Fu',
       #MailingList => 'mailto:...',
       repository =>
-        'http://svn.scratchcomputing.com/File-Fu/trunk',
+        'git://git.enobacon.com/File-Fu.pm.git',
     }
   },
 );

@@ -1,5 +1,5 @@
 package File::Fu::File;
-$VERSION = v0.0.7;
+$VERSION = v0.0.8;
 
 use warnings;
 use strict;
@@ -73,7 +73,8 @@ sub new_direct {
 
 =head2 dir_class
 
-Return the corresponding dir class for this file object.
+Return the corresponding dir class for this file object.  Default:
+L<File::Fu::Dir>.
 
   my $dc = $class->dir_class;
 
@@ -237,11 +238,46 @@ sub open :method {
 } # end subroutine open definition
 ########################################################################
 
+
+=head2 sysopen
+
+Interface to the sysopen() builtin.  The value of $mode is a text string
+joined by '|' characters which must be valid O_* constants from Fcntl.
+
+  my $fh = $file->sysopen($mode, $perms);
+
+=cut
+
+sub sysopen :method {
+  my $self = shift;
+  my ($mode, $perms) = @_;
+  my $m = 0;
+  foreach my $w (split /\|/, $mode) {
+    my $word = 'O_' . uc($w);
+    my $x = Fcntl->can($word) or croak("'$word' not found in Fcntl");
+    $m |= $x->();
+  }
+
+  my $fh = IO::Handle->new;
+  sysopen($fh, "$self", $m, $perms || 0666)
+    or croak("error on sysopen '$self' - $!");
+
+  return($fh);
+} # sysopen ############################################################
+
 =head2 piped_open
 
 Opens a read pipe.  The file is appended to @command.
 
   my $fh = $file->piped_open(@command);
+
+Example: useless use of cat.
+
+  my $fh = $file->piped_open('cat');
+
+This interface is deprecated (maybe) because it is limited to commands
+which take the $file as the last argument.  See run() for the way of the
+future.
 
 =cut
 
@@ -260,6 +296,43 @@ sub piped_open {
   return($fh);
 } # end subroutine piped_open definition
 ########################################################################
+
+=head2 run
+
+Treat C<$file> as a program and execute a pipe open.
+
+  my $fh = $file->run(@args);
+
+If called in void context, runs C<system()> with autodie semantics and
+multi-arg form (suppresses shell interpolation.)
+
+  $file->run(@args);
+
+No special treatment is made for whether $file is relative or not (the
+underlying C<system()>/C<exec()> will search your path.)  Use
+File::Fu->which() to get an absolute path beforehand.
+
+  File::Fu->which('ls')->run('-l');
+
+=cut
+
+sub run {
+  my $self = shift;
+  my (@args) = @_;
+
+  if(defined wantarray) {
+    # TODO use IPC::Run
+    my $fh = IO::Handle->new;
+    my @command = ($self, @args);
+    my $pid = open($fh, '-|', @command) or
+      croak("cannot exec '@command' $!");
+    return($fh);
+  }
+  else {
+    my $ret = system {$self} $self, @args;
+    croak("error executing '$self'", $ret < 0 ? " $!" : '') if($ret);
+  }
+} # run ################################################################
 
 =head2 touch
 
@@ -280,6 +353,23 @@ sub touch {
   return($self);
 } # end subroutine touch definition
 ########################################################################
+
+=head2 mkfifo
+
+  my $file = $file->mkfifo($mode);
+
+=cut
+
+sub mkfifo :method {
+  my $self = shift;
+  my ($mode) = @_;
+
+  $mode ||= 0700;
+  require POSIX;
+  POSIX::mkfifo("$self", $mode) or croak("mkfifo '$self' failed $!");
+
+  return $self;
+} # mkfifo #############################################################
 
 =head2 link
 
@@ -306,6 +396,10 @@ Note that symlinks are relative to where they live.
   # $file->symlink($dir+'link'); is a broken link
   my $link = $file->basename->symlink($dir+'link');
 
+=head2 relative_symlink
+
+See L<File::Fu::Base/relative_symlink>.
+
 =cut
 
 sub symlink :method {
@@ -331,6 +425,21 @@ sub unlink :method {
   unlink("$self") or croak("unlink '$self' failed $!");
 } # end subroutine unlink definition
 ########################################################################
+
+=head2 remove
+
+A forced unlink (chmod the file if it is not writable.)
+
+  $file->remove;
+
+=cut
+
+sub remove {
+  my $self = shift;
+
+  $self->chmod(0200)  unless($self->w);
+  $self->unlink;
+} # remove #############################################################
 
 =head2 readlink
 
@@ -385,9 +494,9 @@ sub read :method {
 
 =head2 write
 
-Write the file's contents.
+Write the file's contents.  Returns the $file object for chaining.
 
-  $file->write($content);
+  $file = $file->write($content);
 
 If File::Slurp is available, $content may be either a scalar, scalar
 ref, or array ref.
@@ -404,10 +513,10 @@ sub write {
 
   if($has_slurp > 0) {
     local $Carp::CarpLevel = 1;
-    return(File::Slurp::write_file("$self",
+    File::Slurp::write_file("$self",
       {@args, err_mode => 'croak'},
       $content
-    ));
+    );
   }
   else {
     croak("must have File::Slurp for fancy writes")
@@ -416,6 +525,8 @@ sub write {
     print $fh $content;
     close($fh) or croak("write '$self' failed: $!");
   }
+
+  return $self;
 } # end subroutine write definition
 ########################################################################
 } # File::Slurp closure
@@ -423,7 +534,13 @@ sub write {
 
 =head2 copy
 
-  $file->copy($dest);
+Copies $file to $dest (which can be a file or directory) and returns the
+name of the new file as an object.
+
+  my $new = $file->copy($dest);
+
+Note that if $dest is already a File object, that existing object will
+be returned.
 
 =cut
 
@@ -469,7 +586,22 @@ sub copy {
   #  $dest->utime($self->stat->mtime);
   #}
 
-} # end subroutine copy definition
+  return($dest);
+} # copy ###############################################################
+
+=head2 move
+
+  my $new = $file->move($dest);
+
+=cut
+
+sub move {
+  my $self = shift;
+  my $new = $self->copy(@_); # TODO can use rename?
+  $self->unlink;
+  return($new);
+} # move ###############################################################
+
 ########################################################################
 
 =head1 AUTHOR
